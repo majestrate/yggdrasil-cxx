@@ -35,6 +35,7 @@ project(yggdrasil_cxx
 
 add_executable(yggdrasil
   src/config.cpp
+  src/event_base.cpp
   src/cryptography.cpp
   src/utils.cpp
   src/main.cpp
