@@ -27,12 +27,32 @@ SockAddr::SockAddr(std::string ip, uint16_t port) {
 }
 
 /// get as sockaddr *
-const sockaddr *SockAddr::ptr() const {
+const sockaddr *SockAddr::c_ptr() const {
   return reinterpret_cast<const sockaddr *>(&_data);
 }
 
+/// get as sockaddr *
+sockaddr *SockAddr::ptr() { return reinterpret_cast<sockaddr *>(&_data); }
+
 /// get address family
-int SockAddr::fam() const { return ptr()->sa_family; }
+int SockAddr::fam() const { return c_ptr()->sa_family; }
+
+bool SockAddr::operator==(const SockAddr &other) const {
+
+  if (fam() != other.fam())
+    return false;
+
+  if (fam() == AF_INET) {
+
+    auto *self_ptr = reinterpret_cast<const sockaddr_in *>(c_ptr());
+    auto *other_ptr = reinterpret_cast<const sockaddr_in *>(other.c_ptr());
+    return *self_ptr == *other_ptr;
+  }
+
+  auto *self_ptr = reinterpret_cast<const sockaddr_in6 *>(c_ptr());
+  auto *other_ptr = reinterpret_cast<const sockaddr_in6 *>(other.c_ptr());
+  return *self_ptr == *other_ptr;
+}
 
 /// get socklen_t
 socklen_t SockAddr::socklen() const {
@@ -52,12 +72,24 @@ socklen_t SockAddr::socklen() const {
 }
 
 std::string SockAddr::str() const {
-  std::array<char, 128> buf{};
+
   if (fam() == AF_INET) {
-    auto *addr = reinterpret_cast<const sockaddr_in *>(&_data);
-    inet_ntop(AF_INET, &addr->sin_addr, buf.data(), buf.size());
-    return fmt::format("{}:{}", buf.data(), ntohs(addr->sin_port));
+    return to_string(*reinterpret_cast<const sockaddr_in *>(c_ptr()));
+  }
+  if (fam() == AF_INET6) {
+    return to_string(*reinterpret_cast<const sockaddr_in6 *>(c_ptr()));
   }
   throw std::runtime_error{fmt::format("invalid address family: {}", fam())};
+}
+
+std::string to_string(const sockaddr_in &addr) {
+  std::array<char, 128> buf{};
+  inet_ntop(AF_INET, &addr.sin_addr.s_addr, buf.data(), buf.size());
+  return fmt::format("{}:{}", buf.data(), ntohs(addr.sin_port));
+}
+std::string to_string(const sockaddr_in6 &addr) {
+  std::array<char, 128> buf{};
+  inet_ntop(AF_INET6, &addr.sin6_addr.s6_addr, buf.data(), buf.size());
+  return fmt::format("[{}]:{}", buf.data(), ntohs(addr.sin6_port));
 }
 } // namespace yggdrasil

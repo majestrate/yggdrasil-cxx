@@ -30,14 +30,14 @@ project(yggdrasil_cxx
   )
 
   find_package(fmt REQUIRED)
+  find_package(OpenSSL REQUIRED)
 
 
 add_executable(yggdrasil
   src/config.cpp
-  src/listener.cpp
+  src/cryptography.cpp
   src/utils.cpp
-  src/daemon.cpp
-  src/peer_map.cpp
+  src/main.cpp
 )
 
 
