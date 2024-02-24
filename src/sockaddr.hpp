@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <cstring>
 #include <netinet/in.h>
-#include <string_view>
+#include <string>
 #include <sys/socket.h>
 
 namespace yggdrasil {

@@ -1,13 +1,14 @@
 
 #include "event_base.hpp"
-#include "utils.hpp"
+#include "sockaddr.hpp"
+
+#include <spdlog/spdlog.h>
 
 #include <array>
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
-#include <fmt/format.h>
 #include <memory>
 #include <netinet/in.h>
 #include <stdexcept>
@@ -15,11 +16,6 @@
 #include <vector>
 
 #include <deque>
-
-#include <any>
-#include <spdlog/fmt/bin_to_hex.h>
-#include <spdlog/spdlog.h>
-
 #include <liburing.h>
 
 namespace {
@@ -36,7 +32,7 @@ struct NodeInfo {
   in6_addr addr;
 };
 
-using BlockReader_t = Reader<std::array<uint8_t, 128>>;
+using BlockReader_t = Reader;
 
 /// all our iops we can do allocated in one place
 struct Resources {
@@ -62,14 +58,17 @@ public:
 
   bool enabled{true};
 
-  State(Resources &res, SockAddr saddr)
+  State(Resources &res)
+
       : _res{res}, accepting{_res.accepting.mem()}, reading{_res.reading.mem()},
-        closing{res.closing.mem()} {
+        closing{res.closing.mem()} {}
+
+  void bind_socket(const SockAddr &saddr) {
     server_fd = ::socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd == -1)
       throw std::runtime_error{fmt::format("socket(): {}", strerror(errno))};
 
-    if (auto err = ::bind(server_fd, saddr.ptr(), saddr.socklen()); err == -1)
+    if (auto err = ::bind(server_fd, saddr.c_ptr(), saddr.socklen()); err == -1)
       throw std::runtime_error{fmt::format("bind(): {}", strerror(errno))};
 
     if (auto err = ::listen(server_fd, 5); err == -1)
@@ -79,10 +78,10 @@ public:
     accepting.emplace_back(server_fd);
   }
 
-  void recv_inbound_connection(Accepter *ev, int fd) {
+  void recv_msg(Accepter *ev, int fd) {
     spdlog::info("new inbound connection, fd={}", fd);
     // connection enters reading mode
-    reading.emplace_back(fd);
+    reading.emplace_back(fd, size_t{128});
 
     // remove existing accept
     std::remove(accepting.begin(), accepting.end(), *ev);
@@ -91,19 +90,28 @@ public:
     accepting.emplace_back(server_fd);
   }
 
-  void recv_data(BlockReader_t *ev, ssize_t num) {
-
-    int fd = ev->fd;
-    spdlog::info("read {} bytes on fd={} {}", num, fd,
-                 spdlog::to_hex(ev->datas[0]));
+  void recv_msg(BlockReader_t *ev, ssize_t num) {
+    int fd = ev->fd();
+    spdlog::debug("read {} bytes on fd={}", num, fd);
 
     std::remove(reading.begin(), reading.end(), *ev);
     /// if we read nothing we should close
     if (num <= 0) {
       closing.emplace_back(fd);
     } else
-      reading.emplace_back(fd);
+      reading.emplace_back(fd, size_t{128});
   }
+
+  void recv_msg(Closer *ev, int) {
+    int fd = ev->fd;
+    spdlog::info("closed fd={}", fd);
+    std::remove(closing.begin(), closing.end(), *ev);
+
+    if (fd == server_fd)
+      end();
+  }
+
+  void close_server() { closing.emplace_back(server_fd); }
 
   void end() {
     io_uring_queue_exit(&g_ring);
@@ -118,8 +126,8 @@ public:
 
     while (state.enabled) {
       int ret = io_uring_wait_cqe(&g_ring, &cqe);
-      spdlog::info("io_uring_wait_cqe(): ret={} cqe={}", ret,
-                   cqe == nullptr ? "null" : "not-null");
+      spdlog::debug("io_uring_wait_cqe(): ret={} cqe={}", ret,
+                    cqe == nullptr ? "null" : "not-null");
 
       if (ret < 0 and ret != 0 - EINTR)
         throw std::runtime_error{
@@ -133,13 +141,11 @@ public:
         auto *ptr = reinterpret_cast<EventBase *>(io_uring_cqe_get_data(cqe));
 
         if (auto *ev = dynamic_cast<Accepter *>(ptr)) {
-          // accept was good.
-          state.recv_inbound_connection(ev, res);
+          state.recv_msg(ev, res);
         } else if (auto *ev = dynamic_cast<BlockReader_t *>(ptr)) {
-          // read happened.
-          state.recv_data(ev, res);
+          state.recv_msg(ev, res);
         } else if (auto *ev = dynamic_cast<Closer *>(ptr)) {
-          spdlog::info("close() on fd={} res={}", ev->fd, res);
+          state.recv_msg(ev, res);
         } else {
           spdlog::info("no event found");
         }
@@ -175,14 +181,21 @@ int main(int argc, char **argv) {
   yggdrasil::Loop event_loop{};
 
   yggdrasil::SockAddr listen_addr{"127.0.0.1", 5555};
-
+  state = std::make_unique<yggdrasil::State>(res);
   try {
-    state = std::make_unique<yggdrasil::State>(res, listen_addr);
+    state->bind_socket(listen_addr);
+  } catch (std::exception &ex) {
+    spdlog::error("startup failed: {}", ex.what());
+    return 1;
+  }
+  spdlog::info("running");
+  try {
     event_loop.run(*state);
   } catch (std::exception &ex) {
     spdlog::error("event loop: {}", ex.what());
     return 1;
   }
+
   spdlog::info("stopped");
 
   return 0;

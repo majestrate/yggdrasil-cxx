@@ -1,6 +1,7 @@
 #pragma once
 
-#include "utils.hpp"
+#include "buffer_ops.hpp"
+#include "sockaddr.hpp"
 #include <liburing.h>
 
 #include <array>
@@ -13,7 +14,8 @@ namespace yggdrasil {
 
 extern ::io_uring g_ring;
 
-struct EventBase {
+class EventBase {
+public:
   virtual ~EventBase() = default;
 };
 
@@ -27,38 +29,35 @@ template <typename T, size_t ents> struct Resource {
   constexpr const auto &mem() const { return _alloc; };
 };
 
-/// gets a submission queue event and associates a T* with it
-template <typename T> auto *get_sqe(io_uring *ring, T *self) {
-  static_assert(is_event_v<T>);
+/// gets a submission queue event and associates a pointer with it
+static auto *get_sqe(io_uring *ring, void *self) {
   auto *sqe = io_uring_get_sqe(ring);
   io_uring_sqe_set_data(sqe, self);
   return sqe;
 }
 
 /// reads a data on an established FD
-template <typename T = std::array<uint8_t, 128>, size_t N = 1>
-struct Reader : public EventBase {
-  std::array<T, N> datas;
-  std::array<iovec, N> vecs;
-  int fd;
+class Reader : public EventBase {
 
+  /// underlying buffer
+  std::array<std::byte, 4 * 1028> buf;
+  iovec vec;
+  int _fd;
+
+public:
   Reader() = default;
 
-  explicit Reader(int fd_) : fd{fd_} {
-    for (size_t idx = 0; idx < N; ++idx) {
-      vecs[idx].iov_base = datas[idx].data();
-      vecs[idx].iov_len = datas[idx].size();
-    }
-    auto *sqe = get_sqe(&g_ring, this);
-    io_uring_prep_readv(sqe, fd, vecs.data(), vecs.size(), 0);
-    io_uring_submit(&g_ring);
-  }
+  explicit Reader(int fd_, size_t n);
 
   bool constexpr operator==(const Reader &other) const {
-    return fd == other.fd;
+    return fd() == other.fd();
   }
 
-  virtual ~Reader() { fd = -1; }
+  virtual ~Reader() { _fd = -1; }
+
+  byte_view_t data() const;
+
+  constexpr int fd() const { return _fd; }
 };
 
 /// accept a single inbound conections and does a handshake on them
@@ -76,7 +75,7 @@ public:
   Accepter() = default;
 
   explicit Accepter(int server_socket);
-  virtual ~Accepter() = default;
+  virtual ~Accepter() { fd = -1; };
 };
 
 /// closes an open file handle

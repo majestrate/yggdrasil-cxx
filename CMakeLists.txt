@@ -30,14 +30,15 @@ project(yggdrasil_cxx
   )
 
   find_package(fmt REQUIRED)
-  find_package(OpenSSL REQUIRED)
+  find_package(spdlog REQUIRED)
+
 
 
 add_executable(yggdrasil
   src/config.cpp
   src/event_base.cpp
   src/cryptography.cpp
-  src/utils.cpp
+  src/sockaddr.cpp
   src/main.cpp
 )
 
@@ -45,6 +46,7 @@ add_executable(yggdrasil
 
 target_link_libraries(yggdrasil
   PUBLIC
+  spdlog::spdlog
   fmt::fmt
   uring)
   
