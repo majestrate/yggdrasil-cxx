@@ -2,21 +2,23 @@
 #include "event_base.hpp"
 #include "sockaddr.hpp"
 
-#include <spdlog/spdlog.h>
-
 #include <array>
 #include <concepts>
 #include <cstddef>
 #include <cstdint>
 #include <exception>
+#include <fmt/format.h>
 #include <memory>
 #include <netinet/in.h>
 #include <stdexcept>
 #include <sys/socket.h>
 #include <vector>
 
+#include <algorithm>
 #include <deque>
 #include <liburing.h>
+
+#include <spdlog/spdlog.h>
 
 namespace {
 /// c/s queue size in entries
@@ -60,8 +62,8 @@ public:
 
   State(Resources &res)
 
-      : _res{res}, accepting{_res.accepting.mem()}, reading{_res.reading.mem()},
-        closing{res.closing.mem()} {}
+      : _res{res}, accepting{_res.accepting.allocator()},
+        reading{_res.reading.allocator()}, closing{res.closing.allocator()} {}
 
   void bind_socket(const SockAddr &saddr) {
     server_fd = ::socket(AF_INET, SOCK_STREAM, 0);
@@ -74,12 +76,11 @@ public:
     if (auto err = ::listen(server_fd, 5); err == -1)
       throw std::runtime_error{fmt::format("listen(): {}", strerror(errno))};
 
-    spdlog::info("accepting on {}", saddr.str());
     accepting.emplace_back(server_fd);
   }
 
   void recv_msg(Accepter *ev, int fd) {
-    spdlog::info("new inbound connection, fd={}", fd);
+    spdlog::debug("accepted fd={}", fd);
     // connection enters reading mode
     reading.emplace_back(fd, size_t{128});
 
@@ -104,7 +105,6 @@ public:
 
   void recv_msg(Closer *ev, int) {
     int fd = ev->fd;
-    spdlog::info("closed fd={}", fd);
     std::remove(closing.begin(), closing.end(), *ev);
 
     if (fd == server_fd)
@@ -147,7 +147,7 @@ public:
         } else if (auto *ev = dynamic_cast<Closer *>(ptr)) {
           state.recv_msg(ev, res);
         } else {
-          spdlog::info("no event found");
+          // spdlog::info("no event found");
         }
       }
       io_uring_cqe_seen(&g_ring, cqe);
@@ -162,7 +162,7 @@ std::unique_ptr<yggdrasil::State> state;
 void sig_handler(int sig) {
   if (sig == SIGINT or sig == SIGTERM) {
     spdlog::info("shutting down");
-    state->end();
+    state->close_server();
   }
   if (sig == SIGWINCH) {
 
@@ -181,6 +181,8 @@ int main(int argc, char **argv) {
   yggdrasil::Loop event_loop{};
 
   yggdrasil::SockAddr listen_addr{"127.0.0.1", 5555};
+
+  spdlog::info("starting up");
   state = std::make_unique<yggdrasil::State>(res);
   try {
     state->bind_socket(listen_addr);

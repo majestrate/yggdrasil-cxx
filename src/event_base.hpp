@@ -14,19 +14,21 @@ namespace yggdrasil {
 
 extern ::io_uring g_ring;
 
+/// common type for all dispatchable events
+/// we use rtti from a reinterpret_cast on a void * to an EventBase * that we
+/// get from liburing's sqe data
 class EventBase {
 public:
   virtual ~EventBase() = default;
 };
 
-template <typename T>
-constexpr bool is_event_v = std::derived_from<T, EventBase>;
-
-template <typename T, size_t ents> struct Resource {
-  static_assert(is_event_v<T>);
-  std::pmr::monotonic_buffer_resource _mem{sizeof(T) * ents};
+/// a holder of N dispatchable events
+template <typename T, size_t N> struct Resource {
+  static_assert(std::derived_from<T, EventBase>);
+  std::pmr::monotonic_buffer_resource _mem{sizeof(T) * N};
   std::pmr::polymorphic_allocator<T> _alloc{&_mem};
-  constexpr const auto &mem() const { return _alloc; };
+  /// get the allocator for this resource
+  constexpr const auto &allocator() const { return _alloc; };
 };
 
 /// gets a submission queue event and associates a pointer with it

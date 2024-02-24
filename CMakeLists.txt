@@ -29,9 +29,9 @@ project(yggdrasil_cxx
     LANGUAGES ${LANGS}
   )
 
-  find_package(fmt REQUIRED)
-  find_package(spdlog REQUIRED)
 
+
+add_subdirectory(external)
 
 
 add_executable(yggdrasil
@@ -44,10 +44,12 @@ add_executable(yggdrasil
 
 
 
+
+
 target_link_libraries(yggdrasil
   PUBLIC
-  spdlog::spdlog
   fmt::fmt
+  spdlog::spdlog
   uring)
   
 
