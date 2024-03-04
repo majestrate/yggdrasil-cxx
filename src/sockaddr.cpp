@@ -1,10 +1,10 @@
-#include <yggdrasil/sockaddr.hpp>
 #include <arpa/inet.h>
 #include <array>
 #include <cstdint>
 #include <fmt/format.h>
 #include <netinet/in.h>
 #include <stdexcept>
+#include <yggdrasil/sockaddr.hpp>
 
 namespace yggdrasil {
 

@@ -10,7 +10,6 @@
 #include <concepts>
 #include <memory_resource>
 
-
 namespace yggdrasil {
 
 extern ::io_uring g_ring;
@@ -55,7 +54,7 @@ public:
     return fd() == other.fd();
   }
 
-  virtual ~Reader(); 
+  virtual ~Reader();
 
   byte_view_t data() const;
 
@@ -70,25 +69,24 @@ class Accepter : public EventBase {
   socklen_t slen;
 
 public:
-    constexpr int fd() const { return _fd; }
+  constexpr int fd() const { return _fd; }
   bool constexpr operator==(const Accepter &other) const {
     return fd() == other.fd();
   }
 
   Accepter() = default;
   explicit Accepter(int server_socket);
-  virtual ~Accepter(); 
+  virtual ~Accepter();
 };
 
 /// closes an open file handle
 class Closer : public EventBase {
- int _fd;
+  int _fd;
+
 public:
-  
   bool constexpr operator==(const Closer &other) const {
     return fd() == other.fd();
   }
-
 
   constexpr int fd() const { return _fd; };
 

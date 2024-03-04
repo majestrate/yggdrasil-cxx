@@ -32,13 +32,11 @@ byte_view_t Reader::data() const {
                      vec.iov_len};
 }
 
-
-
-  Closer::Closer(int fd_) : _fd{fd_} {
-    auto *sqe = get_sqe(&g_ring, this);
-    io_uring_prep_close(sqe, fd());
-    io_uring_submit(&g_ring);
-  }
+Closer::Closer(int fd_) : _fd{fd_} {
+  auto *sqe = get_sqe(&g_ring, this);
+  io_uring_prep_close(sqe, fd());
+  io_uring_submit(&g_ring);
+}
 
 Closer::~Closer() { _fd = -1; };
 

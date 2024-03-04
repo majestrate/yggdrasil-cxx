@@ -8,11 +8,10 @@
 
 namespace yggdrasil {
 
-namespace 
-{
+namespace {
 /// max size of a varuint in bytes
 constexpr size_t max_varuint_64bit_bytes = 10;
-}
+} // namespace
 /// reads a golang varint in buffer, returns decode value and where we left off.
 template <typename Iter_t>
 std::pair<uint64_t, Iter_t> read_golang_varuint(Iter_t begin, Iter_t end) {
@@ -31,29 +30,24 @@ std::pair<uint64_t, Iter_t> read_golang_varuint(Iter_t begin, Iter_t end) {
   throw std::invalid_argument{"decode varint 64bit overflow"};
 }
 
-
-
 /// writes a golang varint
-template<typename Iter_t>
-Iter_t write_golang_varuint(uint64_t x, Iter_t begin, Iter_t end)
-{
+template <typename Iter_t>
+Iter_t write_golang_varuint(uint64_t x, Iter_t begin, Iter_t end) {
   constexpr uint64_t small = 0x000000000080UL;
-  constexpr uint64_t mask =  0x0000000000FFUL;
-  
+  constexpr uint64_t mask = 0x0000000000FFUL;
+
   auto itr = begin;
 
-  while(x  >= small) {
-    if(itr >= end)
+  while (x >= small) {
+    if (itr >= end)
       return itr;
-    
+
     *itr = (x & mask) | small;
-    x >>= 7; 
+    x >>= 7;
     ++itr;
   }
   *itr = (x & mask) | small;
-  return itr; 
+  return itr;
 }
-
-
 
 } // namespace yggdrasil
