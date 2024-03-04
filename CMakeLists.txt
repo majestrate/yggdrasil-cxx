@@ -33,9 +33,9 @@ option(BUILD_TESTS "enable building of unit tests?" ON)
 
 add_subdirectory(external)
 
-add_library(yggdrasil_utils INTERFACE)
-target_include_directories(yggdrasil_utils INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
-target_link_libraries(yggdrasil_utils INTERFACE fmt::fmt spdlog::spdlog uring)
+add_library(yggdrasil_lib INTERFACE)
+target_include_directories(yggdrasil_lib INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(yggdrasil_lib INTERFACE fmt::fmt spdlog::spdlog uring)
 
 add_executable(yggdrasil
   src/config.cpp
@@ -44,7 +44,7 @@ add_executable(yggdrasil
   src/sockaddr.cpp
   src/main.cpp
 )
-target_link_libraries(yggdrasil PUBLIC yggdrasil_utils)
+target_link_libraries(yggdrasil PUBLIC yggdrasil_lib)
 
 
 if(BUILD_TESTS)
