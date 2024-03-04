@@ -1,6 +1,6 @@
 
-#include "event_base.hpp"
-#include "sockaddr.hpp"
+#include <yggdrasil/event_base.hpp>
+#include <yggdrasil/sockaddr.hpp>
 
 #include <array>
 #include <concepts>
@@ -104,7 +104,7 @@ public:
   }
 
   void recv_msg(Closer *ev, int) {
-    int fd = ev->fd;
+    int fd = ev->fd();
     std::remove(closing.begin(), closing.end(), *ev);
 
     if (fd == server_fd)

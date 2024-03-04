@@ -1,14 +1,15 @@
 #pragma once
 
-#include "buffer_ops.hpp"
-#include "sockaddr.hpp"
+#include <yggdrasil/buffer_ops.hpp>
+#include <yggdrasil/sockaddr.hpp>
+
 #include <liburing.h>
+#include <sys/socket.h>
 
 #include <array>
 #include <concepts>
-
 #include <memory_resource>
-#include <sys/socket.h>
+
 
 namespace yggdrasil {
 
@@ -32,7 +33,7 @@ template <typename T, size_t N> struct Resource {
 };
 
 /// gets a submission queue event and associates a pointer with it
-static auto *get_sqe(io_uring *ring, void *self) {
+inline ::io_uring_sqe *get_sqe(io_uring *ring, void *self) {
   auto *sqe = io_uring_get_sqe(ring);
   io_uring_sqe_set_data(sqe, self);
   return sqe;
@@ -48,14 +49,13 @@ class Reader : public EventBase {
 
 public:
   Reader() = default;
-
   explicit Reader(int fd_, size_t n);
 
   bool constexpr operator==(const Reader &other) const {
     return fd() == other.fd();
   }
 
-  virtual ~Reader() { _fd = -1; }
+  virtual ~Reader(); 
 
   byte_view_t data() const;
 
@@ -65,38 +65,37 @@ public:
 /// accept a single inbound conections and does a handshake on them
 class Accepter : public EventBase {
 
-  int fd;
+  int _fd;
   SockAddr addr;
   socklen_t slen;
 
 public:
+    constexpr int fd() const { return _fd; }
   bool constexpr operator==(const Accepter &other) const {
-    return fd == other.fd;
+    return fd() == other.fd();
   }
 
   Accepter() = default;
-
   explicit Accepter(int server_socket);
-  virtual ~Accepter() { fd = -1; };
+  virtual ~Accepter(); 
 };
 
 /// closes an open file handle
-struct Closer : public EventBase {
-
-  int fd;
+class Closer : public EventBase {
+ int _fd;
+public:
+  
   bool constexpr operator==(const Closer &other) const {
-    return fd == other.fd;
+    return fd() == other.fd();
   }
+
+
+  constexpr int fd() const { return _fd; };
 
   Closer() = default;
 
-  explicit Closer(int fd_) : fd{fd_} {
-    auto *sqe = get_sqe(&g_ring, this);
-    io_uring_prep_close(sqe, fd);
-    io_uring_submit(&g_ring);
-  }
-
-  virtual ~Closer() { fd = -1; }
+  explicit Closer(int fd_);
+  virtual ~Closer();
 };
 
 } // namespace yggdrasil

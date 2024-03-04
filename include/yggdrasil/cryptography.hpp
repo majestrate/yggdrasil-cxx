@@ -5,7 +5,7 @@
 
 #include <array>
 
-#include "address.hpp"
+#include <yggdrasil/address.hpp>
 
 namespace yggdrasil {
 
