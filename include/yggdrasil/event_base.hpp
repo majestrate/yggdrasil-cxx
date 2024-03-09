@@ -32,11 +32,7 @@ template <typename T, size_t N> struct Resource {
 };
 
 /// gets a submission queue event and associates a pointer with it
-inline ::io_uring_sqe *get_sqe(io_uring *ring, void *self) {
-  auto *sqe = io_uring_get_sqe(ring);
-  io_uring_sqe_set_data(sqe, self);
-  return sqe;
-}
+::io_uring_sqe *get_sqe(io_uring *ring, void *self);
 
 /// reads a data on an established FD
 class Reader : public EventBase {

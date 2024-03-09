@@ -40,5 +40,11 @@ Closer::Closer(int fd_) : _fd{fd_} {
 
 Closer::~Closer() { _fd = -1; };
 
+::io_uring_sqe *get_sqe(io_uring *ring, void *self) {
+  auto *sqe = io_uring_get_sqe(ring);
+  io_uring_sqe_set_data(sqe, self);
+  return sqe;
+}
+
 io_uring g_ring;
 } // namespace yggdrasil
