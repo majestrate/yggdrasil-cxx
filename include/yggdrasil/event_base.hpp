@@ -15,7 +15,7 @@ namespace yggdrasil {
 extern ::io_uring g_ring;
 
 /// common type for all dispatchable events
-/// we use rtti from a reinterpret_cast on a void * to an EventBase * that we
+/// we use rtti from a reinterpret_cast on a void* to an EventBase* that we
 /// get from liburing's sqe data
 class EventBase {
 public:
