@@ -37,10 +37,10 @@ template <typename T, size_t N> struct Resource {
 /// reads a data on an established FD
 class Reader : public EventBase {
 
-  /// underlying buffer
-  std::array<std::byte, 4 * 1028> buf;
-  iovec vec;
   int _fd;
+  iovec vec;
+  /// underlying buffer
+  std::array<std::byte, 4 * 1024> buf;
 
 public:
   Reader() = default;
