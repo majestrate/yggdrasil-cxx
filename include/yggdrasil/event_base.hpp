@@ -14,12 +14,17 @@ namespace yggdrasil {
 
 extern ::io_uring g_ring;
 
+// forward declare.
+class State;
+
 /// common type for all dispatchable events
 /// we use rtti from a reinterpret_cast on a void* to an EventBase* that we
 /// get from liburing's sqe data
 class EventBase {
 public:
   virtual ~EventBase() = default;
+  /// @brief called on completion of event. mutates state.
+  virtual void completion(State &st, int result) = 0;
 };
 
 /// a holder of N dispatchable events
@@ -50,6 +55,8 @@ public:
     return fd() == other.fd();
   }
 
+  void completion(State &state, int result) override;
+
   virtual ~Reader();
 
   byte_view_t data() const;
@@ -73,6 +80,7 @@ public:
   Accepter() = default;
   explicit Accepter(int server_socket);
   virtual ~Accepter();
+  void completion(State &state, int result) override;
 };
 
 /// closes an open file handle
@@ -90,6 +98,7 @@ public:
 
   explicit Closer(int fd_);
   virtual ~Closer();
+  void completion(State &state, int result) override;
 };
 
 } // namespace yggdrasil

@@ -39,8 +39,10 @@ target_link_libraries(yggdrasil_lib INTERFACE fmt::fmt spdlog::spdlog uring)
 
 add_executable(yggdrasil
   src/config.cpp
+  src/core.cpp
   src/event_base.cpp
   src/cryptography.cpp
+  src/loop.cpp
   src/sockaddr.cpp
   src/main.cpp
 )
