@@ -67,6 +67,7 @@ int main(int argc, char **argv) {
     spdlog::error("event loop: {}", ex.what());
     return 1;
   }
+  state.reset();
   spdlog::info("stopped");
 
   return 0;
