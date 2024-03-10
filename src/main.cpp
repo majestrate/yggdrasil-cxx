@@ -29,13 +29,11 @@ constexpr uint32_t num_q_entries = 512;
 } // namespace
 
 std::unique_ptr<yggdrasil::State> state;
-std::unique_ptr<yggdrasil::CloseLoop> close_loop;
 
 void sig_handler(int sig) {
   if (sig == SIGINT or sig == SIGTERM) {
     spdlog::info("shutting down");
-    if (close_loop == nullptr)
-      close_loop = std::make_unique<yggdrasil::CloseLoop>(*state);
+    state->close_server_socket();
   }
   if (sig == SIGWINCH) {
 
@@ -69,7 +67,6 @@ int main(int argc, char **argv) {
     spdlog::error("event loop: {}", ex.what());
     return 1;
   }
-
   spdlog::info("stopped");
 
   return 0;

@@ -1,6 +1,6 @@
-#include <yggdrasil/event_base.hpp>
-
 #include <stdexcept>
+#include <yggdrasil/core.hpp>
+#include <yggdrasil/event_base.hpp>
 
 #include <fmt/format.h>
 
@@ -11,6 +11,8 @@ Accepter::Accepter(int server_socket) : _fd{server_socket} {
   io_uring_prep_accept(sqe, fd(), addr.ptr(), &slen, SOCK_NONBLOCK);
   io_uring_submit(&g_ring);
 }
+
+void Accepter::completion(State &st, int res) { st.recv_msg(this, res); }
 
 Accepter::~Accepter() { _fd = -1; };
 
@@ -25,6 +27,8 @@ Reader::Reader(int fd, size_t n) : _fd{fd} {
   io_uring_submit(&g_ring);
 }
 
+void Reader::completion(State &st, int res) { st.recv_msg(this, res); }
+
 Reader::~Reader() { _fd = -1; };
 
 byte_view_t Reader::data() const {
@@ -37,6 +41,8 @@ Closer::Closer(int fd_) : _fd{fd_} {
   io_uring_prep_close(sqe, fd());
   io_uring_submit(&g_ring);
 }
+
+void Closer::completion(State &st, int) { st.recv_msg(this); }
 
 Closer::~Closer() { _fd = -1; };
 

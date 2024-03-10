@@ -1,6 +1,8 @@
 #include <fmt/format.h>
+#include <spdlog/spdlog.h>
 #include <sys/socket.h>
 #include <yggdrasil/core.hpp>
+
 namespace yggdrasil {
 
 /// all our iops we can do allocated in one place
@@ -37,46 +39,41 @@ void State::bind_server_socket(const SockAddr &saddr) {
   accepting.emplace_back(server_fd);
 }
 
-/*
-  void State::recv_msg(Accepter *ev, int fd) {
-    spdlog::debug("accepted fd={}", fd);
-    // connection enters reading mode
+void State::recv_msg(Accepter *ev, int fd) {
+  spdlog::debug("accepted fd={}", fd);
+  // connection enters reading mode
+  reading.emplace_back(fd, size_t{128});
+
+  // remove existing accept
+  std::remove(accepting.begin(), accepting.end(), *ev);
+
+  // accept another connection
+  accepting.emplace_back(server_fd);
+}
+
+void State::recv_msg(Reader *ev, ssize_t num) {
+  int fd = ev->fd();
+  spdlog::debug("read {} bytes on fd={}", num, fd);
+
+  std::remove(reading.begin(), reading.end(), *ev);
+  // if we read nothing we should close
+  if (num <= 0) {
+    closing.emplace_back(fd);
+  } else
     reading.emplace_back(fd, size_t{128});
+}
 
-    // remove existing accept
-    std::remove(accepting.begin(), accepting.end(), *ev);
+void State::recv_msg(Closer *ev) {
+  if (ev->fd() == server_fd)
+    end();
+  std::remove(closing.begin(), closing.end(), *ev);
+}
 
-    // accept another connection
-    accepting.emplace_back(server_fd);
-  }
+void State::close_server_socket() { closing.emplace_back(server_fd); }
 
-  void State::recv_msg(BlockReader_t *ev, ssize_t num) {
-    int fd = ev->fd();
-    spdlog::debug("read {} bytes on fd={}", num, fd);
+void State::end() {
+  io_uring_queue_exit(&g_ring);
+  enabled = false;
+}
 
-    std::remove(reading.begin(), reading.end(), *ev);
-    /// if we read nothing we should close
-    if (num <= 0) {
-      closing.emplace_back(fd);
-    } else
-      reading.emplace_back(fd, size_t{128});
-  }
-
-  void recv_msg(Closer *ev, int) {
-    int fd = ev->fd();
-    std::remove(closing.begin(), closing.end(), *ev);
-
-    if (fd == server_fd)
-      end();
-  }
-
-
-  void close_server() { closing.emplace_back(server_fd); }
-
-
-  void end() {
-    io_uring_queue_exit(&g_ring);
-    enabled = false;
-  }
-  */
 } // namespace yggdrasil
