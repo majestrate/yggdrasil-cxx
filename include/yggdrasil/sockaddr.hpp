@@ -6,6 +6,8 @@
 #include <string>
 #include <sys/socket.h>
 
+#include "format.hpp"
+
 namespace yggdrasil {
 
 struct SockAddr {
@@ -32,6 +34,8 @@ struct SockAddr {
 
   bool operator==(const SockAddr &other) const;
 };
+
+template <> constexpr bool is_formatable<SockAddr> = true;
 
 inline bool operator==(const in_addr &lhs, const in_addr &rhs) {
   return memcmp(&lhs, &rhs, sizeof(in_addr)) == 0;

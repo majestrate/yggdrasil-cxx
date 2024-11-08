@@ -6,12 +6,12 @@
 namespace yggdrasil {
 
 void run_loop(State &state) {
-  io_uring_cqe *cqe;
+  io_uring_cqe *cqe{nullptr};
 
   while (state.enabled) {
     int ret = io_uring_wait_cqe(&g_ring, &cqe);
-    spdlog::debug("io_uring_wait_cqe(): ret={} cqe={}", ret,
-                  cqe == nullptr ? "null" : "not-null");
+    spdlog::info("io_uring_wait_cqe(): ret={} cqe={}", ret,
+                 cqe == nullptr ? "null" : "not-null");
 
     if (ret < 0 and ret != 0 - EINTR)
       throw std::runtime_error{
@@ -26,7 +26,8 @@ void run_loop(State &state) {
       if (ptr)
         ptr->completion(state, res);
     }
-    io_uring_cqe_seen(&g_ring, cqe);
+    if (state.enabled)
+      io_uring_cqe_seen(&g_ring, cqe);
   }
 }
 } // namespace yggdrasil

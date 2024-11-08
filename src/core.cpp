@@ -1,7 +1,9 @@
+#include "yggdrasil/connection.hpp"
 #include <fmt/format.h>
 #include <spdlog/spdlog.h>
 #include <sys/socket.h>
 #include <yggdrasil/core.hpp>
+#include <yggdrasil/varint.hpp>
 
 namespace yggdrasil {
 
@@ -11,6 +13,7 @@ struct Resources {
   Resource<Accepter, 8> accepting;
   Resource<Closer, 8> closing;
   Resource<Reader, 128> reading;
+  DynResource<ConnectionState> conns;
 
   Resources() = default;
   Resources(const Resources &) = delete;
@@ -22,11 +25,12 @@ std::shared_ptr<Resources> make_resources() {
 }
 
 State::State(Resources &res)
-    : _res{res}, accepting{_res.accepting.allocator()},
-      reading{_res.reading.allocator()}, closing{res.closing.allocator()} {}
+    : _res{res}, conns{_res.conns.allocator()},
+      accepting{_res.accepting.allocator()}, reading{_res.reading.allocator()},
+      closing{_res.closing.allocator()} {}
 
 void State::bind_server_socket(const SockAddr &saddr) {
-  server_fd = ::socket(AF_INET, SOCK_STREAM, 0);
+  server_fd = ::socket(saddr.fam(), SOCK_STREAM, 0);
   if (server_fd == -1)
     throw std::runtime_error{fmt::format("socket(): {}", strerror(errno))};
 
@@ -36,44 +40,86 @@ void State::bind_server_socket(const SockAddr &saddr) {
   if (auto err = ::listen(server_fd, 5); err == -1)
     throw std::runtime_error{fmt::format("listen(): {}", strerror(errno))};
 
+  spdlog::info("server socket bound fd={}", server_fd);
+
   accepting.emplace_back(server_fd);
 }
 
-void State::recv_msg(Accepter *ev, int fd) {
-  spdlog::debug("accepted fd={}", fd);
+void State::event(Accepter &ev) {
+  auto fd = ev.socket();
+  spdlog::info("accepted fd={}", fd);
   // connection enters reading mode
-  reading.emplace_back(fd, size_t{128});
+  reading.emplace_back(fd, 6);
+
+  if (conns.size() < fd)
+    conns.resize(fd);
 
   // remove existing accept
-  std::remove(accepting.begin(), accepting.end(), *ev);
+  std::remove(accepting.begin(), accepting.end(), ev);
 
   // accept another connection
   accepting.emplace_back(server_fd);
 }
 
-void State::recv_msg(Reader *ev, ssize_t num) {
-  int fd = ev->fd();
-  spdlog::debug("read {} bytes on fd={}", num, fd);
+void State::event(Reader &ev) {
+  int fd = ev.fd();
 
-  std::remove(reading.begin(), reading.end(), *ev);
+  auto view = ev.data();
+  bool empty = view.empty();
+
+  spdlog::info("read {} bytes on fd={}", view.size(), fd);
   // if we read nothing we should close
-  if (num <= 0) {
+  if (empty) {
     closing.emplace_back(fd);
-  } else
-    reading.emplace_back(fd, size_t{128});
+    return;
+  }
+
+  size_t read_amount{};
+
+  if (auto *conn = get_conn_by_fd(fd))
+    read_amount = conn->feed(view);
+
+  std::remove(reading.begin(), reading.end(), ev);
+  if (read_amount)
+    reading.emplace_back(fd, read_amount);
+  else
+    closing.emplace_back(fd);
 }
 
-void State::recv_msg(Closer *ev) {
-  if (ev->fd() == server_fd)
+void State::event(Closer &ev) {
+  int fd = ev.fd();
+  spdlog::info("close fd={}", fd);
+  if (fd == server_fd)
     end();
-  std::remove(closing.begin(), closing.end(), *ev);
+  else if (auto *conn = get_conn_by_fd(fd)) {
+    spdlog::info("clear connection fd={}", fd);
+    conn->clear();
+  }
+  std::remove(closing.begin(), closing.end(), ev);
 }
 
-void State::close_server_socket() { closing.emplace_back(server_fd); }
+ConnectionState *State::get_conn_by_fd(int fd) {
+  if (fd > conns.size())
+    return nullptr;
+  return &conns[fd - 1];
+}
+
+void State::close_server_socket() {
+  if (server_fd == -1)
+    return;
+
+  for (const auto &ev : reading) {
+    spdlog::info("close client socket fd={}", ev.fd());
+    closing.emplace_back(ev.fd());
+  }
+  closing.emplace_back(server_fd);
+  spdlog::info("Close server socket fd={}", server_fd);
+}
 
 void State::end() {
-  io_uring_queue_exit(&g_ring);
   enabled = false;
+  io_uring_queue_exit(&g_ring);
+  spdlog::info("end()");
 }
 
 } // namespace yggdrasil

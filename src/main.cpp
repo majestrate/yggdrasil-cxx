@@ -42,8 +42,9 @@ void sig_handler(int sig) {
 }
 
 int main(int argc, char **argv) {
-  auto s = signal(SIGINT, sig_handler);
-  signal(SIGWINCH, s);
+  signal(SIGINT, sig_handler);
+  signal(SIGTERM, sig_handler);
+  signal(SIGWINCH, sig_handler);
 
   io_uring_queue_init(num_q_entries, &yggdrasil::g_ring, 0);
 
@@ -56,6 +57,7 @@ int main(int argc, char **argv) {
   state = std::make_unique<yggdrasil::State>(*res_ptr);
   try {
     state->bind_server_socket(listen_addr);
+    spdlog::info("bound to {}", listen_addr.str());
   } catch (std::exception &ex) {
     spdlog::error("startup failed: {}", ex.what());
     return 1;
@@ -65,6 +67,7 @@ int main(int argc, char **argv) {
     yggdrasil::run_loop(*state);
   } catch (std::exception &ex) {
     spdlog::error("event loop: {}", ex.what());
+    state.reset();
     return 1;
   }
   state.reset();

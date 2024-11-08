@@ -22,7 +22,7 @@ std::pair<uint64_t, Iter_t> read_golang_varuint(Iter_t begin, Iter_t end) {
     if (b < 0x80) {
       if (std::distance(begin, itr) == max_varuint_64bit_bytes - 1 and b > 1)
         throw std::invalid_argument{"decode varint underflow"};
-      return std::make_pair(uint64_t{x | b << s}, itr);
+      return std::make_pair(uint64_t{x | b << s}, ++itr);
     }
     x |= (b & 0x7f) << s;
     s += 7;
@@ -40,14 +40,14 @@ Iter_t write_golang_varuint(uint64_t x, Iter_t begin, Iter_t end) {
 
   while (x >= small) {
     if (itr >= end)
-      return itr;
+      return end;
 
     *itr = (x & mask) | small;
     x >>= 7;
     ++itr;
   }
   *itr = (x & mask) | small;
-  return itr;
+  return ++itr;
 }
 
 } // namespace yggdrasil

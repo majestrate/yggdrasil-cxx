@@ -12,7 +12,10 @@ Accepter::Accepter(int server_socket) : _fd{server_socket} {
   io_uring_submit(&g_ring);
 }
 
-void Accepter::completion(State &st, int res) { st.recv_msg(this, res); }
+void Accepter::completion(State &st, int res) {
+  _cfd = res;
+  st.event(*this);
+}
 
 Accepter::~Accepter() { _fd = -1; };
 
@@ -27,7 +30,10 @@ Reader::Reader(int fd, size_t n) : _fd{fd} {
   io_uring_submit(&g_ring);
 }
 
-void Reader::completion(State &st, int res) { st.recv_msg(this, res); }
+void Reader::completion(State &st, int res) {
+  vec.iov_len = res;
+  st.event(*this);
+}
 
 Reader::~Reader() { _fd = -1; };
 
@@ -42,7 +48,7 @@ Closer::Closer(int fd_) : _fd{fd_} {
   io_uring_submit(&g_ring);
 }
 
-void Closer::completion(State &st, int) { st.recv_msg(this); }
+void Closer::completion(State &st, int) { st.event(*this); }
 
 Closer::~Closer() { _fd = -1; };
 

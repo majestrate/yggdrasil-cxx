@@ -36,6 +36,13 @@ template <typename T, size_t N> struct Resource {
   constexpr const auto &allocator() const { return _alloc; };
 };
 
+template <typename T> struct DynResource {
+  std::pmr::unsynchronized_pool_resource _mem{};
+  std::pmr::polymorphic_allocator<T> _alloc{&_mem};
+  /// get the allocator for this resource
+  constexpr const auto &allocator() const { return _alloc; };
+};
+
 /// gets a submission queue event and associates a pointer with it
 ::io_uring_sqe *get_sqe(io_uring *ring, void *self);
 
@@ -68,11 +75,13 @@ public:
 class Accepter : public EventBase {
 
   int _fd;
+  int _cfd;
   SockAddr addr;
   socklen_t slen;
 
 public:
   constexpr int fd() const { return _fd; }
+  constexpr int socket() const { return _cfd; }
   bool constexpr operator==(const Accepter &other) const {
     return fd() == other.fd();
   }
@@ -83,7 +92,7 @@ public:
   void completion(State &state, int result) override;
 };
 
-/// closes an open file handle
+/// Closes An open file handle
 class Closer : public EventBase {
   int _fd;
 

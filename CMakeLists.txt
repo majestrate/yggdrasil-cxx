@@ -38,7 +38,10 @@ target_include_directories(yggdrasil_lib INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/i
 target_link_libraries(yggdrasil_lib INTERFACE fmt::fmt spdlog::spdlog uring)
 
 add_executable(yggdrasil
+  src/bloom.cpp
+  src/buffer_ops.cpp
   src/config.cpp
+  src/connection.cpp
   src/core.cpp
   src/event_base.cpp
   src/cryptography.cpp
