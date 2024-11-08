@@ -15,5 +15,7 @@ class Bloom {
 
 public:
   void add_key(const std::array<uint8_t, 32> &pubkey);
+
+  bool has_key(const std::array<uint8_t, 32> &pubkey) const;
 };
 } // namespace yggdrasil

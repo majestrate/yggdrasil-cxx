@@ -37,8 +37,16 @@ add_library(yggdrasil_lib INTERFACE)
 target_include_directories(yggdrasil_lib INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
 target_link_libraries(yggdrasil_lib INTERFACE fmt::fmt spdlog::spdlog uring)
 
-add_executable(yggdrasil
+add_library(yggdrasil_util STATIC
   src/bloom.cpp
+)
+
+target_include_directories(yggdrasil_util PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_link_libraries(yggdrasil_util PRIVATE fmt::fmt spdlog::spdlog uring)
+
+target_link_libraries(yggdrasil_lib INTERFACE yggdrasil_util)
+
+add_executable(yggdrasil
   src/buffer_ops.cpp
   src/config.cpp
   src/connection.cpp

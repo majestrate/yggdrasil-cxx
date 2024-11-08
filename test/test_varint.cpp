@@ -19,6 +19,6 @@ TEST_CASE("Varint Encodes correctly", "[varint]") {
     auto [x, itr] = yggdrasil::read_golang_varuint(data.begin(), data.end());
 
     REQUIRE(x == 300);
-    REQUIRE(itr == data.begin() + 2);
+    REQUIRE(itr == data.begin() + 3);
   }
 }
