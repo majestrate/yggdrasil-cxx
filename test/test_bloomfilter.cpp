@@ -92,3 +92,23 @@ TEST_CASE("Test bloom filter encode 8bit", "[bloom]") {
   REQUIRE(bloom2.has_key(pk));
   REQUIRE(bloom1 == bloom2);
 }
+
+TEST_CASE("Test BloomState", "[bloom]") {
+  using Pubkey = std::array<uint8_t, 32>;
+  std::pmr::unsynchronized_pool_resource mempool;
+  std::pmr::polymorphic_allocator<Pubkey> key_alloc{&mempool};
+  std::pmr::polymorphic_allocator<yggdrasil::Bloom> bloom_alloc{&mempool};
+  yggdrasil::BloomState<Pubkey> state{key_alloc, bloom_alloc};
+  bool reached{false};
+  Pubkey pk{1};
+  yggdrasil::Bloom send, recv;
+  state.add_state(pk, send, recv, true, false);
+  state.for_each([pk, &reached](auto &key, auto &send, auto &recv, auto ontree,
+                                auto zdirty) {
+    reached = true;
+    REQUIRE(pk == key);
+    REQUIRE(ontree == true);
+    REQUIRE(zdirty == false);
+  });
+  REQUIRE(reached);
+}
