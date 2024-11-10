@@ -7,6 +7,7 @@
 #include <memory_resource>
 #include <optional>
 #include <stdexcept>
+#include <vector>
 
 namespace yggdrasil {
 class Bloom {
@@ -51,9 +52,9 @@ public:
   template <typename Iter_t> constexpr Iter_t decode(Iter_t begin, Iter_t end) {
     using val_t = typename std::iterator_traits<Iter_t>::value_type;
     constexpr size_t bytes_per_iteration = sizeof(val_t);
-    constexpr size_t num_iterations =
+    constexpr size_t copy_per_iterations =
         sizeof(filter_buf_t::value_type) / bytes_per_iteration;
-    using iteration_buf_t = std::array<val_t, num_iterations>;
+    using iteration_buf_t = std::array<val_t, copy_per_iterations>;
     auto dist = bytes_per_iteration * std::distance(begin, end);
     if (dist < byte_size())
       throw std::range_error{fmt::format(
@@ -62,9 +63,12 @@ public:
     auto itr = begin;
     for (auto &x : tmp) {
       iteration_buf_t buf;
-      std::copy_n(itr, num_iterations, buf.begin());
+      static_assert(buf.size() * sizeof(typename iteration_buf_t::value_type) ==
+                        sizeof(filter_buf_t::value_type),
+                    "sanity check fail");
+      std::copy_n(itr, copy_per_iterations, buf.begin());
       x = native64_from_big(buf.data());
-      itr += num_iterations;
+      itr += copy_per_iterations;
     }
 
     _filter.decode(tmp.begin(), tmp.end());
@@ -83,6 +87,11 @@ template <typename Pubkey_t> class BloomState {
   std::pmr::vector<Pubkey_t> _pubkeys;
   std::vector<bool> _ontree;
   std::vector<bool> _zdirty;
+
+  BloomState(BloomState &&) = delete;
+  BloomState(const BloomState &) = delete;
+  BloomState &operator=(const BloomState &) = delete;
+  BloomState &operator=(BloomState &&) = delete;
 
 public:
   using PubkeyAlloc_t = std::pmr::polymorphic_allocator<Pubkey_t>;
